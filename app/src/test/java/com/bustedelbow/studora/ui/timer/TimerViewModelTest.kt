@@ -7,7 +7,9 @@ import com.bustedelbow.studora.domain.SessionRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -46,6 +48,7 @@ class TimerViewModelTest {
     private class FakeSessionRepository : SessionRepository {
         val completed = mutableListOf<SessionRecord>()
         val inProgressFlow = MutableStateFlow<InProgress?>(null)
+        private val clearsFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
         override suspend fun recordCompleted(record: SessionRecord) {
             completed += record
@@ -62,6 +65,14 @@ class TimerViewModelTest {
         override suspend fun clearInProgress() {
             inProgressFlow.value = null
         }
+
+        override suspend fun clearAll() {
+            completed.clear()
+            inProgressFlow.value = null
+            clearsFlow.emit(Unit)
+        }
+
+        override val clears: Flow<Unit> = clearsFlow.asSharedFlow()
     }
 
     @Before
@@ -321,5 +332,35 @@ class TimerViewModelTest {
         assertTrue(viewModel.uiState.value is TimerUiState.Completed)
         assertEquals(listOf(SessionRecord(0L, 5L * 60L * 1000L)), repository.completed)
         assertNull(repository.inProgressFlow.value)
+    }
+
+    @Test
+    fun `clearing all data resets a running session to idle and keeps the duration`() = runTimerTest {
+        viewModel.selectPreset(45)
+        viewModel.start()
+        testScheduler.runCurrent()
+        assertTrue(viewModel.uiState.value is TimerUiState.Running)
+
+        repository.clearAll()
+        testScheduler.runCurrent()
+
+        val state = viewModel.uiState.value
+        assertTrue(state is TimerUiState.Idle)
+        assertEquals(45, state.durationMinutes)
+    }
+
+    @Test
+    fun `a cleared session cannot re-record an entry when its countdown finishes`() = runTimerTest {
+        viewModel.setCustomDuration("5")
+        viewModel.start()
+        tickSeconds(5 * 60 - 1)
+
+        repository.clearAll()
+        testScheduler.runCurrent()
+
+        // Drive past the original end instant; nothing must be recorded after the clear.
+        tickSeconds(5)
+
+        assertTrue(repository.completed.isEmpty())
     }
 }

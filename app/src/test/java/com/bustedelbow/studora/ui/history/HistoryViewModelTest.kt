@@ -10,6 +10,7 @@ import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -58,6 +59,12 @@ class HistoryViewModelTest {
         override suspend fun clearInProgress() {
             // Not exercised by the history mapping.
         }
+
+        override suspend fun clearAll() {
+            completedFlow.value = emptyList()
+        }
+
+        override val clears: Flow<Unit> = MutableSharedFlow()
     }
 
     @Before

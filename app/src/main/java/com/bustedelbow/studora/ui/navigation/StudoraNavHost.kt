@@ -35,7 +35,7 @@ fun StudoraNavHost(
             HistoryScreen(viewModel = hiltViewModel())
         }
         composable(Route.Settings.route) {
-            SettingsScreen()
+            SettingsScreen(viewModel = hiltViewModel())
         }
     }
 }

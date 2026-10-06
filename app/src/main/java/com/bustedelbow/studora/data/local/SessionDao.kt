@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -35,4 +36,15 @@ interface SessionDao {
     /** Deletes the in-progress snapshot after completion or discard. */
     @Query("DELETE FROM in_progress")
     suspend fun clearInProgress()
+
+    /** Deletes every completed session. */
+    @Query("DELETE FROM completed_sessions")
+    suspend fun deleteAllCompleted()
+
+    /** Deletes all completed sessions and the in-progress snapshot atomically. */
+    @Transaction
+    suspend fun clearAll() {
+        deleteAllCompleted()
+        clearInProgress()
+    }
 }

@@ -43,4 +43,18 @@ interface SessionRepository {
 
     /** Removes the in-progress snapshot after it completes or is discarded. */
     suspend fun clearInProgress()
+
+    /**
+     * Deletes every completed session and the in-progress snapshot in one operation.
+     *
+     * Used by the Settings "clear all study data" action; there is no undo.
+     */
+    suspend fun clearAll()
+
+    /**
+     * Emits once after each [clearAll], so live screens (notably the timer) can reset.
+     *
+     * A running in-memory session would otherwise re-record an entry after the clear.
+     */
+    val clears: Flow<Unit>
 }

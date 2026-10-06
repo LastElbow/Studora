@@ -53,6 +53,9 @@ class TimerViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            repository.clears.collect { reset() }
+        }
+        viewModelScope.launch {
             val persisted = repository.inProgress().firstOrNull() ?: return@launch
             if (session == null) {
                 restoreInProgress(persisted)
