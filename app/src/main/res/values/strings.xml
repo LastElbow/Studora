@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Studora</string>
 
+    <string name="nav_timer">Timer</string>
+    <string name="nav_history">History</string>
+    <string name="history_title">Study history</string>
+    <string name="history_empty">No focus sessions yet</string>
+
     <string name="timer_title">Focus timer</string>
     <string name="timer_preset_minutes">%1$d min</string>
     <string name="timer_custom_label">Custom minutes</string>
