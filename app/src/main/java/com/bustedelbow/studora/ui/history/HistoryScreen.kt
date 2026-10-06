@@ -80,14 +80,14 @@ fun HistoryScreen(
 }
 
 /**
- * Stateless history screen: renders [state]'s 53-column, Monday-first window, with back/forward
+ * Stateless history screen: renders [state]'s 52-column, Monday-first window, with back/forward
  * controls that step one year at a time. Cell colours come from the theme's `heatmapRamp()`; every
  * non-future cell exposes a per-day content description. Days after the window's `today` render as
  * empty placeholders.
  *
  * The grid is wider than a phone, so it scrolls horizontally and starts pinned to the latest week.
- * The visible "Less"/"More" legend labels are hard-coded (as in the MVP slice) rather than moved to
- * `strings.xml`; month and weekday axis labels are locale-formatted at runtime.
+ * Month, weekday, legend, and cell labels all come from string resources; axis month/weekday names
+ * are locale-formatted at runtime.
  */
 @Composable
 fun HistoryContent(
@@ -125,11 +125,12 @@ private fun ColumnScope.LoadingState() {
         modifier = Modifier.fillMaxWidth().weight(1f),
         contentAlignment = Alignment.Center,
     ) {
+        val loadingDescription = stringResource(R.string.history_loading)
         CircularProgressIndicator(
             modifier =
                 Modifier
                     .testTag(TAG_HISTORY_LOADING)
-                    .semantics { contentDescription = LOADING_DESCRIPTION },
+                    .semantics { contentDescription = loadingDescription },
         )
     }
 }
@@ -228,8 +229,10 @@ private fun Heatmap(
 ) {
     val windowStart = content.window.startDate
     val scrollState = rememberScrollState()
-    LaunchedEffect(content.window.offsetYears) {
-        scrollState.scrollTo(scrollState.maxValue)
+    LaunchedEffect(scrollState.maxValue, content.window.offsetYears) {
+        if (scrollState.maxValue > 0) {
+            scrollState.scrollTo(scrollState.maxValue)
+        }
     }
 
     Column(modifier = Modifier.horizontalScroll(scrollState)) {
@@ -339,6 +342,7 @@ private fun HeatCell(
     ramp: List<Color>,
 ) {
     val color = if (isFuture) Color.Transparent else ramp[shade.ordinal]
+    val description = stringResource(R.string.history_cell_description, count, date.toString())
     val base =
         Modifier
             .size(CELL_SIZE)
@@ -349,23 +353,26 @@ private fun HeatCell(
             if (isFuture) {
                 base
             } else {
-                base.semantics { contentDescription = cellDescription(count, date) }
+                base.semantics { contentDescription = description }
             },
     )
 }
 
 @Composable
 private fun HeatLegend(ramp: List<Color>) {
+    val legendDescription = stringResource(R.string.history_legend_description)
+    val lessLabel = stringResource(R.string.history_legend_less)
+    val moreLabel = stringResource(R.string.history_legend_more)
     Row(
         modifier =
             Modifier
                 .testTag(TAG_HISTORY_LEGEND)
-                .semantics { contentDescription = LEGEND_DESCRIPTION },
+                .semantics { contentDescription = legendDescription },
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = LEGEND_LESS,
+            text = lessLabel,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -373,21 +380,12 @@ private fun HeatLegend(ramp: List<Color>) {
             Box(Modifier.size(LEGEND_SWATCH_SIZE).background(color = color, shape = CELL_SHAPE))
         }
         Text(
-            text = LEGEND_MORE,
+            text = moreLabel,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
-
-/** Per-cell accessibility text, e.g. "2 sessions on 2026-01-15". */
-private fun cellDescription(count: Int, date: LocalDate): String =
-    "$count sessions on $date"
-
-private const val LOADING_DESCRIPTION = "Loading study history"
-private const val LEGEND_LESS = "Less"
-private const val LEGEND_MORE = "More"
-private const val LEGEND_DESCRIPTION = "Shade legend, fewer to more sessions"
 
 internal const val TAG_HISTORY_LOADING = "history_loading"
 internal const val TAG_HISTORY_EMPTY = "history_empty"

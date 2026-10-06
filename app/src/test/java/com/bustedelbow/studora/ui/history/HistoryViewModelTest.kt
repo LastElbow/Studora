@@ -72,6 +72,7 @@ class HistoryViewModelTest {
 
         override suspend fun clearAll() {
             completedFlow.value = emptyList()
+            clearsFlow.emit(Unit)
         }
 
         override val clears: Flow<Unit> = clearsFlow.asSharedFlow()
@@ -213,6 +214,32 @@ class HistoryViewModelTest {
         viewModel.contentWithOffset(1)
 
         viewModel.nextYear()
+
+        val current = viewModel.contentWithOffset(0)
+        assertFalse(current.canGoForward)
+    }
+
+    @Test
+    fun `clearing all data returns to the current window`() = runTest(dispatcher) {
+        clock.currentMillis = at(2026, 6, 15, 12, 0)
+        val repository = FakeSessionRepository(
+            listOf(
+                session(at(2026, 1, 15, 9, 0), 25),
+                session(at(2025, 1, 15, 9, 0), 25),
+            ),
+        )
+        val viewModel = HistoryViewModel(repository, clock)
+
+        viewModel.contentWithOffset(0)
+        viewModel.previousYear()
+        viewModel.contentWithOffset(1)
+
+        repository.clearAll()
+        testScheduler.runCurrent()
+        viewModel.uiState.first { it is HistoryUiState.Empty }
+
+        repository.recordCompleted(session(at(2026, 1, 15, 9, 0), 25))
+        testScheduler.runCurrent()
 
         val current = viewModel.contentWithOffset(0)
         assertFalse(current.canGoForward)

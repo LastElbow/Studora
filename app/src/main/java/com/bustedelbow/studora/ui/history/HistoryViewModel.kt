@@ -22,14 +22,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
- * Monday-first week columns in one heatmap window.
- *
- * 53 columns cover a full year (52 whole weeks plus the partial week GitHub also shows); the MVP
- * slice used 16.
+ * Monday-first week columns in one heatmap window: 52 whole weeks (364 days), matching the rolling
+ * year GitHub shows. The MVP slice used 16.
  */
-internal const val WEEKS_IN_WINDOW = 53
+internal const val WEEKS_IN_WINDOW = 52
 
 /**
  * One rendered heatmap window: the [WEEKS_IN_WINDOW] Monday-first weeks ending in the week that
@@ -93,6 +92,11 @@ class HistoryViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val offsetYears = MutableStateFlow(0)
+
+    init {
+        // A clear erases all data; snap back to the current window so the user is never stranded.
+        viewModelScope.launch { repository.clears.collect { offsetYears.value = 0 } }
+    }
 
     val uiState: StateFlow<HistoryUiState> =
         combine(repository.completedSessions(), offsetYears) { sessions, offset -> sessions to offset }

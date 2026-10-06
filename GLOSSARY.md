@@ -13,9 +13,9 @@ Studora's domain vocabulary. Single-context repo: one glossary at the root, with
 
 - **Grid** (or **heatmap**) — the GitHub-style calendar of day cells on the History tab, one cell per day.
 - **Shade** — the colour of a cell, derived from that day's completed-session count: 0 / 1 / 2–3 / 4–5 / 6+. Modelled as `ShadeLevel`.
-- **Window** — the fixed 52-week (53-column), Monday-first block of days the grid renders. A grid is one window.
+- **Window** — the fixed 52-week (52-column), Monday-first block of days the grid renders. A grid is one window.
 - **Current window** (window `0`) — the trailing block ending in the week containing today. It is the default view and rolls forward with the date.
-- **Past window** (window `N`, `N > 0`) — the block ending in the week containing `today.minusYears(N)`. Windows are consecutive and non-overlapping; back navigation is bounded by the earliest year that has data.
+- **Past window** (window `N`, `N > 0`) — the block ending in the week containing `today.minusYears(N)`. Windows do not overlap; back navigation is bounded by the earliest year that has data.
 
 ## Data
 

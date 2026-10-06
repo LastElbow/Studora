@@ -9,6 +9,11 @@
     <string name="history_previous_year">Previous year</string>
     <string name="history_next_year">Next year</string>
     <string name="history_period">%1$s - %2$s</string>
+    <string name="history_loading">Loading study history</string>
+    <string name="history_legend_less">Less</string>
+    <string name="history_legend_more">More</string>
+    <string name="history_legend_description">Shade legend, fewer to more sessions</string>
+    <string name="history_cell_description">%1$d sessions on %2$s</string>
 
     <string name="settings_title">Settings</string>
     <string name="settings_data_section">Data</string>
