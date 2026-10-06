@@ -5,7 +5,8 @@ A pomodoro focus timer with a GitHub-style consistency heatmap — offline-first
 ## Features
 
 - **Focus timer** — 25-minute default sessions with custom durations from 5 to 180 minutes, plus pause/resume and discard.
-- **Consistency heatmap** — a 16-week, Monday-first grid of study shades (0, 1, 2–3, 4–5, 6+ sessions) bucketed by start-day attribution.
+- **Consistency heatmap** — a full-year (52-week), Monday-first grid of study shades (0, 1, 2–3, 4–5, 6+ sessions) bucketed by start-day attribution, with month/weekday labels and back/forward navigation to previous years.
+- **Settings** — clear all study data (irreversible, behind a confirmation dialog).
 - **Offline-first** — no account, no sync, no network. Everything lives on your device.
 
 ## Downloads
@@ -37,7 +38,7 @@ Then open the project in Android Studio (Giraffe or newer) and run it on a devic
 
 - `domain/` — pure Kotlin logic: the FocusSession state machine and StudyHeat bucketing, with injected clock and time zone.
 - `data/` — Room persistence for `completed_sessions` and `in_progress`, exposed through repositories.
-- `ui/` — Jetpack Compose screens and Hilt-injected view models, with Timer and History bottom tabs.
+- `ui/` — Jetpack Compose screens and Hilt-injected view models, with Timer, History, and Settings bottom tabs.
 
 The single `:app` module targets `com.bustedelbow.studora` on minSdk 27 / targetSdk 37, built with Kotlin, Jetpack Compose, AGP 9.4.1, Gradle 9.6.0, and JDK 21.
 
@@ -51,7 +52,7 @@ Run the unit test suite:
 ./gradlew :app:testDebugUnitTest
 ```
 
-The suite has 48 unit tests total across 6 test suites (SessionMapper 4, FocusSession 10, StudyHeat 10, Example 1, HistoryViewModel 4, TimerViewModel 19), all green as of the MVP release on 2026-10-06.
+The suite has 56 unit tests across 7 test suites (SessionMapper 4, FocusSession 10, StudyHeat 10, Example 1, HistoryViewModel 8, SettingsViewModel 2, TimerViewModel 21), all green.
 
 ## Roadmap
 
