@@ -13,3 +13,12 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Agent skill roots: installed via `android skills add`, machine-local
+.dsh/
+.agents/
+
+# Local IDE / build caches and Windows artifacts
+/.idea/
+.kotlin/
+nul

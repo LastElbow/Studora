@@ -165,7 +165,7 @@ the five composable properties above plus `heatmapRamp(): List<Color>` ordered
 
 | File | Holds |
 |---|---|
-| `ui/theme/Color.kt` | every theme + heat literal (the only color literals in `:app`) |
+| `ui/theme/Color.kt` | the MD3 theme + heat tokens (theme and heat color literals; icon path fills live in `ui/components/AppIcons.kt`) |
 | `ui/theme/Theme.kt` | `StudoraTheme(darkTheme, content)`; light/dark schemes; default shapes |
 | `ui/theme/Type.kt` | full Roboto MD3 type scale |
-| `MainActivity.kt` | themed empty `Scaffold` only (no screens) |
+| `MainActivity.kt` | themed root `Scaffold` + bottom-tab navigation (Timer / History / Settings) |
