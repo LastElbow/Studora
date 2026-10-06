@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Base64
 
 plugins {
     alias(libs.plugins.android.application)
@@ -6,6 +7,33 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.dagger.hilt)
+}
+
+// --- Release signing (opt-in via environment / CI secrets) -------------------
+// Values are read from the environment only; nothing is hardcoded or committed.
+// assembleDebug and CI checks never set these, so they always stay unsigned-free.
+val releaseKeystoreBase64 = System.getenv("KEYSTORE_BASE64")
+val releaseKeystorePassword = System.getenv("KEYSTORE_PASSWORD")
+val releaseKeyAlias = System.getenv("KEY_ALIAS")
+val releaseKeyPassword = System.getenv("KEY_PASSWORD")
+
+val hasReleaseSigning = listOf(
+    releaseKeystoreBase64,
+    releaseKeystorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
+// Materialise the base64 keystore under build/ (git-ignored, throwaway on CI).
+// The release workflow pre-decodes it; decoding here keeps a local release build
+// working from the same four variables. The build never fails if they are absent.
+val releaseKeystoreFile = layout.buildDirectory
+    .file("release-signing/release.keystore")
+    .get().asFile
+
+if (hasReleaseSigning && !releaseKeystoreFile.exists()) {
+    releaseKeystoreFile.parentFile.mkdirs()
+    releaseKeystoreFile.writeBytes(Base64.getMimeDecoder().decode(releaseKeystoreBase64))
 }
 
 android {
@@ -24,8 +52,27 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = releaseKeystoreFile
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
+            if (signingConfig == null) {
+                logger.warn(
+                    "Release signing is not configured: set KEYSTORE_BASE64, KEYSTORE_PASSWORD, " +
+                        "KEY_ALIAS and KEY_PASSWORD to produce a signed release build. " +
+                        "Continuing with an unsigned release build.",
+                )
+            }
             optimization {
                 enable = false
             }
