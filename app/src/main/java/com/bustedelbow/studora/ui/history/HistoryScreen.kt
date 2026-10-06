@@ -24,9 +24,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -44,7 +46,6 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import java.util.Locale
 
 /** One call per day of the week, Monday first. */
 private const val DAYS_IN_WEEK = 7
@@ -58,9 +59,6 @@ private val LEGEND_SWATCH_SIZE = 12.dp
 /** Axis gutter: the weekday label column plus the gap before the day columns. */
 private val WEEKDAY_LABEL_WIDTH = 28.dp
 private val LABEL_GAP = 8.dp
-
-/** Window label formatter, e.g. "Jun 2026". */
-private val MONTH_YEAR: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM yyyy", Locale.getDefault())
 
 /**
  * Stateful history route: observes [HistoryViewModel] and delegates rendering to the stateless
@@ -184,11 +182,13 @@ private fun WindowNavigation(
 ) {
     val previousDescription = stringResource(R.string.history_previous_year)
     val nextDescription = stringResource(R.string.history_next_year)
+    val locale = LocalConfiguration.current.locales[0]
+    val formatter = remember(locale) { DateTimeFormatter.ofPattern("MMM yyyy", locale) }
     val label =
         stringResource(
             R.string.history_period,
-            window.startDate.format(MONTH_YEAR),
-            window.endDate.format(MONTH_YEAR),
+            window.startDate.format(formatter),
+            window.endDate.format(formatter),
         )
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -245,6 +245,7 @@ private fun Heatmap(
 /** Month labels, one per week column, shown where a new month begins (GitHub behaviour). */
 @Composable
 private fun MonthLabels(windowStart: LocalDate) {
+    val locale = LocalConfiguration.current.locales[0]
     Row(modifier = Modifier.testTag(TAG_HISTORY_MONTH_LABELS)) {
         Spacer(Modifier.width(WEEKDAY_LABEL_WIDTH + LABEL_GAP))
         Row(horizontalArrangement = Arrangement.spacedBy(CELL_GAP)) {
@@ -255,7 +256,7 @@ private fun MonthLabels(windowStart: LocalDate) {
                 Box(Modifier.width(CELL_SIZE)) {
                     if (startsMonth) {
                         Text(
-                            text = date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                            text = date.month.getDisplayName(TextStyle.SHORT, locale),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -273,6 +274,7 @@ private fun MonthLabels(windowStart: LocalDate) {
 /** Monday-first weekday labels; only Mon / Wed / Fri are shown, as on GitHub. */
 @Composable
 private fun WeekdayLabels() {
+    val locale = LocalConfiguration.current.locales[0]
     Column(
         modifier = Modifier.testTag(TAG_HISTORY_WEEKDAY_LABELS),
         verticalArrangement = Arrangement.spacedBy(CELL_GAP),
@@ -289,7 +291,7 @@ private fun WeekdayLabels() {
             ) {
                 if (show) {
                     Text(
-                        text = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                        text = dayOfWeek.getDisplayName(TextStyle.SHORT, locale),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
