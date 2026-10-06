@@ -30,7 +30,7 @@ import com.bustedelbow.studora.ui.navigation.StudoraNavHost
 import com.bustedelbow.studora.ui.theme.StudoraTheme
 import dagger.hilt.android.AndroidEntryPoint
 
-/** Single entry point. Hosts the Timer | History bottom-tab scaffold (ADR-0003). */
+/** Single entry point. Hosts the Timer | History | Settings bottom-tab scaffold (ADR-0003, ADR-0004). */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
