@@ -1,3 +1,21 @@
 <resources>
     <string name="app_name">Studora</string>
+
+    <string name="timer_title">Focus timer</string>
+    <string name="timer_preset_minutes">%1$d min</string>
+    <string name="timer_custom_label">Custom minutes</string>
+    <string name="timer_custom_error">Enter a whole number between 5 and 180</string>
+    <string name="timer_start">Start</string>
+    <string name="timer_pause">Pause</string>
+    <string name="timer_resume">Resume</string>
+    <string name="timer_discard">Discard</string>
+    <string name="timer_new_session">New session</string>
+    <string name="timer_completed_message">Session complete</string>
+    <string name="timer_discarded_message">Session discarded</string>
+    <string name="timer_display_description">Time remaining %1$s</string>
+    <string name="timer_state_idle">Idle</string>
+    <string name="timer_state_running">Running</string>
+    <string name="timer_state_paused">Paused</string>
+    <string name="timer_state_completed">Completed</string>
+    <string name="timer_state_discarded">Discarded</string>
 </resources>
