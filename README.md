@@ -8,6 +8,10 @@ A pomodoro focus timer with a GitHub-style consistency heatmap — offline-first
 - **Consistency heatmap** — a 16-week, Monday-first grid of study shades (0, 1, 2–3, 4–5, 6+ sessions) bucketed by start-day attribution.
 - **Offline-first** — no account, no sync, no network. Everything lives on your device.
 
+## Downloads
+
+Signed release builds (APK + AAB) are published per version tag on the [Releases page](https://github.com/LastElbow/Studora/releases).
+
 ## Screenshots
 
 Screenshots are not included yet. If you build the app locally with Android Studio, you can capture your own from the Timer and History tabs.
@@ -47,7 +51,7 @@ Run the unit test suite:
 ./gradlew :app:testDebugUnitTest
 ```
 
-The domain layer is covered by 48 unit tests, all green as of the MVP release on 2026-10-06.
+The suite has 48 unit tests total across 6 test suites (SessionMapper 4, FocusSession 10, StudyHeat 10, Example 1, HistoryViewModel 4, TimerViewModel 19), all green as of the MVP release on 2026-10-06.
 
 ## Roadmap
 
