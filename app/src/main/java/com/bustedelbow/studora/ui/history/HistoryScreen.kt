@@ -17,12 +17,13 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,19 +36,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bustedelbow.studora.R
 import com.bustedelbow.studora.domain.ShadeLevel
+import com.bustedelbow.studora.ui.components.ChevronLeftIcon
+import com.bustedelbow.studora.ui.components.ChevronRightIcon
 import com.bustedelbow.studora.ui.theme.StudoraTheme
 import com.bustedelbow.studora.ui.theme.heatmapRamp
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import java.time.temporal.TemporalAdjusters
 import java.util.Locale
-
-/**
- * Monday-first week columns in the heatmap window: 53 columns cover a full year (52 weeks plus the
- * partial week GitHub also shows), not the 16-week MVP slice.
- */
-private const val WEEKS_IN_WINDOW = 53
 
 /** One call per day of the week, Monday first. */
 private const val DAYS_IN_WEEK = 7
@@ -62,10 +59,12 @@ private val LEGEND_SWATCH_SIZE = 12.dp
 private val WEEKDAY_LABEL_WIDTH = 28.dp
 private val LABEL_GAP = 8.dp
 
+/** Window label formatter, e.g. "Jun 2026". */
+private val MONTH_YEAR: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM yyyy", Locale.getDefault())
+
 /**
  * Stateful history route: observes [HistoryViewModel] and delegates rendering to the stateless
- * [HistoryContent]. The window anchor (`today`) is read once here so the content function stays a
- * pure projection of its arguments and the previews are deterministic.
+ * [HistoryContent], forwarding the year-navigation intents.
  */
 @Composable
 fun HistoryScreen(
@@ -73,15 +72,20 @@ fun HistoryScreen(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val today = remember { LocalDate.now() }
 
-    HistoryContent(state = state, today = today, modifier = modifier)
+    HistoryContent(
+        state = state,
+        onPreviousYear = viewModel::previousYear,
+        onNextYear = viewModel::nextYear,
+        modifier = modifier,
+    )
 }
 
 /**
- * Stateless history screen: renders [state] and builds the Monday-first full-year grid anchored on
- * [today]. Cell colours come from the theme's `heatmapRamp()`; every non-future cell exposes a
- * per-day content description. Days after [today] render as empty placeholders.
+ * Stateless history screen: renders [state]'s 53-column, Monday-first window, with back/forward
+ * controls that step one year at a time. Cell colours come from the theme's `heatmapRamp()`; every
+ * non-future cell exposes a per-day content description. Days after the window's `today` render as
+ * empty placeholders.
  *
  * The grid is wider than a phone, so it scrolls horizontally and starts pinned to the latest week.
  * The visible "Less"/"More" legend labels are hard-coded (as in the MVP slice) rather than moved to
@@ -90,7 +94,8 @@ fun HistoryScreen(
 @Composable
 fun HistoryContent(
     state: HistoryUiState,
-    today: LocalDate,
+    onPreviousYear: () -> Unit,
+    onNextYear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -106,7 +111,12 @@ fun HistoryContent(
         when (state) {
             HistoryUiState.Loading -> LoadingState()
             HistoryUiState.Empty -> EmptyState()
-            is HistoryUiState.Content -> ContentState(state = state, today = today)
+            is HistoryUiState.Content ->
+                ContentState(
+                    state = state,
+                    onPreviousYear = onPreviousYear,
+                    onNextYear = onNextYear,
+                )
         }
     }
 }
@@ -144,34 +154,81 @@ private fun ColumnScope.EmptyState() {
 @Composable
 private fun ColumnScope.ContentState(
     state: HistoryUiState.Content,
-    today: LocalDate,
+    onPreviousYear: () -> Unit,
+    onNextYear: () -> Unit,
 ) {
     val ramp = heatmapRamp()
+    WindowNavigation(
+        window = state.window,
+        canGoBack = state.canGoBack,
+        canGoForward = state.canGoForward,
+        onPreviousYear = onPreviousYear,
+        onNextYear = onNextYear,
+    )
     Box(
         modifier = Modifier.fillMaxWidth().weight(1f),
         contentAlignment = Alignment.Center,
     ) {
-        Heatmap(content = state, today = today, ramp = ramp)
+        Heatmap(content = state, ramp = ramp)
     }
     HeatLegend(ramp = ramp)
 }
 
+@Composable
+private fun WindowNavigation(
+    window: HistoryWindow,
+    canGoBack: Boolean,
+    canGoForward: Boolean,
+    onPreviousYear: () -> Unit,
+    onNextYear: () -> Unit,
+) {
+    val previousDescription = stringResource(R.string.history_previous_year)
+    val nextDescription = stringResource(R.string.history_next_year)
+    val label =
+        stringResource(
+            R.string.history_period,
+            window.startDate.format(MONTH_YEAR),
+            window.endDate.format(MONTH_YEAR),
+        )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        IconButton(
+            onClick = onPreviousYear,
+            enabled = canGoBack,
+            modifier = Modifier.testTag(TAG_HISTORY_PREVIOUS),
+        ) {
+            Icon(imageVector = ChevronLeftIcon, contentDescription = previousDescription)
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag(TAG_HISTORY_PERIOD),
+        )
+        IconButton(
+            onClick = onNextYear,
+            enabled = canGoForward,
+            modifier = Modifier.testTag(TAG_HISTORY_NEXT),
+        ) {
+            Icon(imageVector = ChevronRightIcon, contentDescription = nextDescription)
+        }
+    }
+}
+
 /**
  * The full-year heatmap: month labels above, weekday labels to the left, and a Monday-first grid of
- * day columns. Horizontally scrollable; anchored to the latest week on first layout.
+ * day columns. Horizontally scrollable; pinned to the latest week whenever the window changes.
  */
 @Composable
 private fun Heatmap(
     content: HistoryUiState.Content,
-    today: LocalDate,
     ramp: List<Color>,
 ) {
-    val windowStart =
-        today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-            .minusWeeks((WEEKS_IN_WINDOW - 1).toLong())
-
+    val windowStart = content.window.startDate
     val scrollState = rememberScrollState()
-    LaunchedEffect(scrollState.maxValue) {
+    LaunchedEffect(content.window.offsetYears) {
         scrollState.scrollTo(scrollState.maxValue)
     }
 
@@ -180,7 +237,7 @@ private fun Heatmap(
         Row {
             WeekdayLabels()
             Spacer(Modifier.width(LABEL_GAP))
-            HeatmapGrid(content = content, today = today, windowStart = windowStart, ramp = ramp)
+            HeatmapGrid(content = content, windowStart = windowStart, ramp = ramp)
         }
     }
 }
@@ -247,7 +304,6 @@ private fun WeekdayLabels() {
 @Composable
 private fun HeatmapGrid(
     content: HistoryUiState.Content,
-    today: LocalDate,
     windowStart: LocalDate,
     ramp: List<Color>,
 ) {
@@ -263,7 +319,7 @@ private fun HeatmapGrid(
                         date = date,
                         count = content.countsByDay[date] ?: 0,
                         shade = content.shadesByDay[date] ?: ShadeLevel.NONE,
-                        isFuture = date.isAfter(today),
+                        isFuture = date.isAfter(content.today),
                         ramp = ramp,
                     )
                 }
@@ -337,6 +393,9 @@ internal const val TAG_HISTORY_GRID = "history_grid"
 internal const val TAG_HISTORY_LEGEND = "history_legend"
 internal const val TAG_HISTORY_MONTH_LABELS = "history_month_labels"
 internal const val TAG_HISTORY_WEEKDAY_LABELS = "history_weekday_labels"
+internal const val TAG_HISTORY_PREVIOUS = "history_previous"
+internal const val TAG_HISTORY_NEXT = "history_next"
+internal const val TAG_HISTORY_PERIOD = "history_period"
 internal const val TAG_HISTORY_CELL_PREFIX = "history_cell_"
 
 @Preview(name = "History content", showBackground = true)
@@ -363,8 +422,13 @@ private fun HistoryContentPreview() {
                             today.minusDays(3) to 1,
                             today.minusDays(10) to 3,
                         ),
+                    window = historyWindow(today, offsetYears = 0),
+                    today = today,
+                    canGoForward = false,
+                    canGoBack = true,
                 ),
-            today = today,
+            onPreviousYear = {},
+            onNextYear = {},
         )
     }
 }
@@ -373,7 +437,11 @@ private fun HistoryContentPreview() {
 @Composable
 private fun HistoryEmptyPreview() {
     StudoraTheme {
-        HistoryContent(state = HistoryUiState.Empty, today = LocalDate.of(2026, 1, 18))
+        HistoryContent(
+            state = HistoryUiState.Empty,
+            onPreviousYear = {},
+            onNextYear = {},
+        )
     }
 }
 
@@ -381,6 +449,10 @@ private fun HistoryEmptyPreview() {
 @Composable
 private fun HistoryLoadingPreview() {
     StudoraTheme {
-        HistoryContent(state = HistoryUiState.Loading, today = LocalDate.of(2026, 1, 18))
+        HistoryContent(
+            state = HistoryUiState.Loading,
+            onPreviousYear = {},
+            onNextYear = {},
+        )
     }
 }
