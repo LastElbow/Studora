@@ -1,8 +1,14 @@
 package com.bustedelbow.studora.ui.timer
 
 import com.bustedelbow.studora.domain.Clock
+import com.bustedelbow.studora.domain.InProgress
+import com.bustedelbow.studora.domain.SessionRecord
+import com.bustedelbow.studora.domain.SessionRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.resetMain
@@ -11,6 +17,8 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -31,12 +39,35 @@ class TimerViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
     private val clock = FakeClock()
+    private val repository = FakeSessionRepository()
     private lateinit var viewModel: TimerViewModel
+
+    /** In-memory [SessionRepository] so the view-model never touches Room under test. */
+    private class FakeSessionRepository : SessionRepository {
+        val completed = mutableListOf<SessionRecord>()
+        val inProgressFlow = MutableStateFlow<InProgress?>(null)
+
+        override suspend fun recordCompleted(record: SessionRecord) {
+            completed += record
+        }
+
+        override fun completedSessions(): Flow<List<SessionRecord>> = flowOf(completed.toList())
+
+        override suspend fun saveInProgress(startMillis: Long, durationMinutes: Int) {
+            inProgressFlow.value = InProgress(startMillis = startMillis, durationMinutes = durationMinutes)
+        }
+
+        override fun inProgress(): Flow<InProgress?> = inProgressFlow
+
+        override suspend fun clearInProgress() {
+            inProgressFlow.value = null
+        }
+    }
 
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
-        viewModel = TimerViewModel(clock)
+        viewModel = TimerViewModel(clock, repository)
     }
 
     @After
@@ -222,5 +253,73 @@ class TimerViewModelTest {
         viewModel.start()
 
         assertTrue(viewModel.uiState.value is TimerUiState.Idle)
+    }
+
+    @Test
+    fun `restore resumes countdown from persisted values`() = runTimerTest {
+        // Persisted ten minutes ago with a 25-minute duration: nine hundred seconds must remain.
+        clock.currentMillis = 600_000L
+        repository.inProgressFlow.value = InProgress(startMillis = 0L, durationMinutes = 25)
+
+        val restored = TimerViewModel(clock, repository)
+        testScheduler.runCurrent()
+
+        val state = restored.uiState.value
+        assertTrue(state is TimerUiState.Running)
+        assertEquals(25L * 60L - 600L, state.remainingSeconds)
+        restored.reset()
+    }
+
+    @Test
+    fun `restore continues the resumed countdown on the next ticks`() = runTimerTest {
+        clock.currentMillis = 600_000L
+        repository.inProgressFlow.value = InProgress(startMillis = 0L, durationMinutes = 25)
+
+        val restored = TimerViewModel(clock, repository)
+        testScheduler.runCurrent()
+
+        // Drive the shared fake clock + scheduler forward one second at a time.
+        clock.currentMillis += 1000L
+        testScheduler.advanceTimeBy(1000L)
+        testScheduler.runCurrent()
+
+        assertEquals(25L * 60L - 601L, restored.uiState.value.remainingSeconds)
+        restored.reset()
+    }
+
+    @Test
+    fun `start persists an in-progress snapshot`() = runTimerTest {
+        viewModel.selectPreset(45)
+
+        viewModel.start()
+        testScheduler.runCurrent()
+
+        assertEquals(
+            InProgress(startMillis = clock.currentMillis, durationMinutes = 45),
+            repository.inProgressFlow.value,
+        )
+    }
+
+    @Test
+    fun `discard clears the in-progress snapshot`() = runTimerTest {
+        viewModel.start()
+        testScheduler.runCurrent()
+        assertNotNull(repository.inProgressFlow.value)
+
+        viewModel.discard()
+        testScheduler.runCurrent()
+
+        assertNull(repository.inProgressFlow.value)
+    }
+
+    @Test
+    fun `completion records the session and clears in-progress`() = runTimerTest {
+        viewModel.setCustomDuration("5")
+        viewModel.start()
+        tickSeconds(5 * 60)
+
+        assertTrue(viewModel.uiState.value is TimerUiState.Completed)
+        assertEquals(listOf(SessionRecord(0L, 5L * 60L * 1000L)), repository.completed)
+        assertNull(repository.inProgressFlow.value)
     }
 }
