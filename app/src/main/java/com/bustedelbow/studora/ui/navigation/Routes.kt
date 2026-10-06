@@ -10,4 +10,6 @@ sealed class Route(val route: String) {
     data object Timer : Route("timer")
 
     data object History : Route("history")
+
+    data object Settings : Route("settings")
 }

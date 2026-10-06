@@ -7,10 +7,11 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.bustedelbow.studora.ui.history.HistoryScreen
+import com.bustedelbow.studora.ui.settings.SettingsScreen
 import com.bustedelbow.studora.ui.timer.TimerScreen
 
 /**
- * Top-level navigation graph for the Timer | History tabs (ADR-0003).
+ * Top-level navigation graph for the Timer | History | Settings tabs (ADR-0003, ADR-0004).
  *
  * Each destination keeps its own state: navigation-compose saves the back-stack entry's
  * `SaveableStateHolder` state, so the Timer's input and the History grid survive tab switches.
@@ -32,6 +33,9 @@ fun StudoraNavHost(
         }
         composable(Route.History.route) {
             HistoryScreen(viewModel = hiltViewModel())
+        }
+        composable(Route.Settings.route) {
+            SettingsScreen()
         }
     }
 }
