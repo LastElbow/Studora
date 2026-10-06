@@ -1,20 +1,26 @@
 package com.bustedelbow.studora.ui.history
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -33,10 +39,15 @@ import com.bustedelbow.studora.ui.theme.StudoraTheme
 import com.bustedelbow.studora.ui.theme.heatmapRamp
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
+import java.util.Locale
 
-/** Monday-first week columns in the heatmap window: the last 16 weeks including the current one. */
-private const val WEEKS_IN_WINDOW = 16
+/**
+ * Monday-first week columns in the heatmap window: 53 columns cover a full year (52 weeks plus the
+ * partial week GitHub also shows), not the 16-week MVP slice.
+ */
+private const val WEEKS_IN_WINDOW = 53
 
 /** One call per day of the week, Monday first. */
 private const val DAYS_IN_WEEK = 7
@@ -46,6 +57,10 @@ private val CELL_SIZE = 14.dp
 private val CELL_GAP = 3.dp
 private val CELL_SHAPE = RoundedCornerShape(2.dp)
 private val LEGEND_SWATCH_SIZE = 12.dp
+
+/** Axis gutter: the weekday label column plus the gap before the day columns. */
+private val WEEKDAY_LABEL_WIDTH = 28.dp
+private val LABEL_GAP = 8.dp
 
 /**
  * Stateful history route: observes [HistoryViewModel] and delegates rendering to the stateless
@@ -64,12 +79,13 @@ fun HistoryScreen(
 }
 
 /**
- * Stateless history screen: renders [state] and builds the Monday-first 16-week grid anchored on
+ * Stateless history screen: renders [state] and builds the Monday-first full-year grid anchored on
  * [today]. Cell colours come from the theme's `heatmapRamp()`; every non-future cell exposes a
  * per-day content description. Days after [today] render as empty placeholders.
  *
- * The visible "Less"/"More" legend labels are hard-coded because this slice is limited to these
- * Kotlin files and deliberately does not touch `strings.xml`.
+ * The grid is wider than a phone, so it scrolls horizontally and starts pinned to the latest week.
+ * The visible "Less"/"More" legend labels are hard-coded (as in the MVP slice) rather than moved to
+ * `strings.xml`; month and weekday axis labels are locale-formatted at runtime.
  */
 @Composable
 fun HistoryContent(
@@ -135,14 +151,17 @@ private fun ColumnScope.ContentState(
         modifier = Modifier.fillMaxWidth().weight(1f),
         contentAlignment = Alignment.Center,
     ) {
-        HeatmapGrid(content = state, today = today, ramp = ramp)
+        Heatmap(content = state, today = today, ramp = ramp)
     }
     HeatLegend(ramp = ramp)
 }
 
-/** The Monday-first week columns; cell (week, day) maps to its calendar date. */
+/**
+ * The full-year heatmap: month labels above, weekday labels to the left, and a Monday-first grid of
+ * day columns. Horizontally scrollable; anchored to the latest week on first layout.
+ */
 @Composable
-private fun HeatmapGrid(
+private fun Heatmap(
     content: HistoryUiState.Content,
     today: LocalDate,
     ramp: List<Color>,
@@ -151,6 +170,87 @@ private fun HeatmapGrid(
         today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
             .minusWeeks((WEEKS_IN_WINDOW - 1).toLong())
 
+    val scrollState = rememberScrollState()
+    LaunchedEffect(scrollState.maxValue) {
+        scrollState.scrollTo(scrollState.maxValue)
+    }
+
+    Column(modifier = Modifier.horizontalScroll(scrollState)) {
+        MonthLabels(windowStart = windowStart)
+        Row {
+            WeekdayLabels()
+            Spacer(Modifier.width(LABEL_GAP))
+            HeatmapGrid(content = content, today = today, windowStart = windowStart, ramp = ramp)
+        }
+    }
+}
+
+/** Month labels, one per week column, shown where a new month begins (GitHub behaviour). */
+@Composable
+private fun MonthLabels(windowStart: LocalDate) {
+    Row(modifier = Modifier.testTag(TAG_HISTORY_MONTH_LABELS)) {
+        Spacer(Modifier.width(WEEKDAY_LABEL_WIDTH + LABEL_GAP))
+        Row(horizontalArrangement = Arrangement.spacedBy(CELL_GAP)) {
+            repeat(WEEKS_IN_WINDOW) { week ->
+                val date = windowStart.plusWeeks(week.toLong())
+                val startsMonth =
+                    week == 0 || date.month != windowStart.plusWeeks((week - 1).toLong()).month
+                Box(Modifier.width(CELL_SIZE)) {
+                    if (startsMonth) {
+                        Text(
+                            text = date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            softWrap = false,
+                            // Draw beyond the 14dp slot without widening it, so columns stay aligned.
+                            modifier = Modifier.wrapContentWidth(Alignment.Start, unbounded = true),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Monday-first weekday labels; only Mon / Wed / Fri are shown, as on GitHub. */
+@Composable
+private fun WeekdayLabels() {
+    Column(
+        modifier = Modifier.testTag(TAG_HISTORY_WEEKDAY_LABELS),
+        verticalArrangement = Arrangement.spacedBy(CELL_GAP),
+    ) {
+        repeat(DAYS_IN_WEEK) { day ->
+            val dayOfWeek = DayOfWeek.MONDAY.plus(day.toLong())
+            val show =
+                dayOfWeek == DayOfWeek.MONDAY ||
+                    dayOfWeek == DayOfWeek.WEDNESDAY ||
+                    dayOfWeek == DayOfWeek.FRIDAY
+            Box(
+                modifier = Modifier.size(width = WEEKDAY_LABEL_WIDTH, height = CELL_SIZE),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                if (show) {
+                    Text(
+                        text = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** The Monday-first week columns; cell (week, day) maps to its calendar date. */
+@Composable
+private fun HeatmapGrid(
+    content: HistoryUiState.Content,
+    today: LocalDate,
+    windowStart: LocalDate,
+    ramp: List<Color>,
+) {
     Row(
         modifier = Modifier.testTag(TAG_HISTORY_GRID),
         horizontalArrangement = Arrangement.spacedBy(CELL_GAP),
@@ -235,6 +335,8 @@ internal const val TAG_HISTORY_LOADING = "history_loading"
 internal const val TAG_HISTORY_EMPTY = "history_empty"
 internal const val TAG_HISTORY_GRID = "history_grid"
 internal const val TAG_HISTORY_LEGEND = "history_legend"
+internal const val TAG_HISTORY_MONTH_LABELS = "history_month_labels"
+internal const val TAG_HISTORY_WEEKDAY_LABELS = "history_weekday_labels"
 internal const val TAG_HISTORY_CELL_PREFIX = "history_cell_"
 
 @Preview(name = "History content", showBackground = true)
